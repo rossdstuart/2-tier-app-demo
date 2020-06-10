@@ -8,7 +8,7 @@ Parameters:
     Type: AWS::EC2::Image::Id
     Default: ami-09d95fab7fff3776c
   Ec2InstanceType:
-    Description: EC2 Instance of Web Teir ASG
+    Description: EC2 Instance of Web Tier ASG
     Type: String
     Default: t2.micro
   PublicSubnet1:
@@ -38,7 +38,7 @@ Parameters:
     Type: String
     NoEcho: true
 Resources:
-  AppTeirASG:
+  AppTierASG:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       VPCZoneIdentifier:
@@ -87,7 +87,7 @@ Resources:
   HostSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: 'EC2 ASG Web Teir SG'
+      GroupDescription: 'EC2 ASG Web Tier SG'
       VpcId: !Ref VpcID
       SecurityGroupIngress:
       - IpProtocol: tcp
@@ -97,8 +97,9 @@ Resources:
       - IpProtocol: tcp
         FromPort: 80
         ToPort: 80
-        SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+        # SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
         # CidrIp: 10.0.0.0/8
+        CidrIp: 127.0.0.1/32
 
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -168,7 +169,9 @@ Resources:
       VpcId: !Ref VpcID
       SecurityGroupIngress:
       - IpProtocol: tcp
-        FromPort: 3306
-        ToPort: 3306
+        # FromPort: 3306
+        # ToPort: 3306
+        FromPort: 306
+        ToPort: 306
         SourceSecurityGroupId: !Ref HostSecurityGroup
         

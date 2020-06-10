@@ -1,5 +1,5 @@
-# 2-teir-app-demo
-Example Application for 2 teir app
+# 2-tier-app-demo
+Example Application for 2 tier app
 
 
 
@@ -21,7 +21,7 @@ nslookup to test for public or private ELBs
 
 ## Deploy Code
 ```
-aws cloudformation deploy --template-file 2-teir-app-stack.yaml \
+aws cloudformation deploy --template-file 2-tier-app-stack.yaml \
     --stack-name StackName \
     --parameter-overrides VpcID="vpc-000000000" \
       PublicSubnet1="subnet-00000000" \
