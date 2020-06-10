@@ -18,3 +18,17 @@ Ncat: Connection timed out.
 
 
 nslookup to test for public or private ELBs
+
+## Deploy Code
+```
+aws cloudformation deploy --template-file 2-teir-app-stack.yaml \
+    --stack-name StackName \
+    --parameter-overrides VpcID="vpc-000000000" \
+      PublicSubnet1="subnet-00000000" \
+      PublicSubnet2="subnet-00000000" \
+      PrivateSubnet1="subnet-00000000" \
+      PrivateSubnet2="subnet-00000000" \
+      SshKey="ssh-key-name" \
+      DBSubnetGroup="Name of Private Subnet Group" \
+      DBPassword="xxxxxx"
+```
