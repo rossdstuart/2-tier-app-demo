@@ -1,0 +1,174 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  VpcID:
+    Description: VPC used to create the interfaces
+    Type: AWS::EC2::VPC::Id
+  AmiId:
+    Description: EC2 AMI ID
+    Type: AWS::EC2::Image::Id
+    Default: ami-09d95fab7fff3776c
+  Ec2InstanceType:
+    Description: EC2 Instance of Web Teir ASG
+    Type: String
+    Default: t2.micro
+  PublicSubnet1:
+    Description: subnet ID with a route to IGW
+    Type: String
+  PublicSubnet2:
+    Description: subnet ID with a route to IGW in a different AZ than PublicSubnet1
+    Type: String
+  PrivateSubnet1:
+    Description: Subnet ID with default route to NAT Gateway, this code uses public yum repo
+    Type: String
+  PrivateSubnet2:
+    Description: Subnet ID with Default route to NAT Gateway in different AZ than PrivateSubnet1
+    Type: String
+  SshKey:
+    Description: Name of SSH Key of EC2 Instances
+    Type: String
+  DBInstanceType:
+    Description: Hardware Class DB is run on 
+    Type: String
+    Default: db.t2.small
+  DBSubnetGroup:
+    Description: Group of Subnets used for RDS
+    Type: String
+  DBPassword:
+    Description: Password for RDS
+    Type: String
+    NoEcho: true
+Resources:
+  AppTeirASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      LaunchConfigurationName: !Ref LaunchConfigurationName
+      MaxSize: '2'
+      MinSize: '2'
+      TargetGroupARNs:
+        - !Ref LoadBalancerTargetGroup
+      Tags:
+        - Key: DontParkMe
+          Value: "true"
+          PropagateAtLaunch: true
+
+  LaunchConfigurationName:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties: 
+      ImageId: !Ref AmiId
+      SecurityGroups: 
+        - !Ref HostSecurityGroup
+      InstanceType: !Ref Ec2InstanceType
+      KeyName: !Ref SshKey
+      UserData:
+        Fn::Base64: |
+            #!/bin/bash -xe
+            # Install Nginx
+            sudo amazon-linux-extras install -y nginx1
+            # Enable and start service
+            sudo systemctl enable nginx
+            sudo systemctl start nginx
+            sudo sh -c 'echo "<h1>IT WORKS!!!</h1>" > /usr/share/nginx/html/index.html'
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'Web Traffic ELB SG'
+      VpcId: !Ref VpcID
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+        # CidrIp: 127.0.0.1/32
+
+  HostSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'EC2 ASG Web Teir SG'
+      VpcId: !Ref VpcID
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.0.0.0/8
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+        # CidrIp: 10.0.0.0/8
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      IpAddressType: ipv4
+      SecurityGroups: 
+        - !Ref LoadBalancerSecurityGroup
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            !Ref LoadBalancerTargetGroup
+      LoadBalancerArn:
+        !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  LoadBalancerTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VpcID
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPort: '80'
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 3
+
+  DatabaseCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      Engine: aurora
+      MasterUsername: 'DemoUser'
+      MasterUserPassword: !Ref DBPassword
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VpcSecurityGroupIds: 
+        - !Ref DBSecurityGroup
+
+  DatabasePrimaryInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Engine: aurora
+      DBClusterIdentifier: !Ref DatabaseCluster
+      DBInstanceClass: !Ref DBInstanceType
+      DBSubnetGroupName: !Ref DBSubnetGroup
+
+  DatabaseReplicaInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Engine: aurora
+      DBClusterIdentifier: !Ref DatabaseCluster
+      DBInstanceClass: !Ref DBInstanceType
+      DBSubnetGroupName: !Ref DBSubnetGroup
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'RDS SG'
+      VpcId: !Ref VpcID
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306
+        SourceSecurityGroupId: !Ref HostSecurityGroup
+        
