@@ -3,7 +3,7 @@ Example Application for 2 tier app
 
 
 
-Test Connectivty to RDS from EC2 instance
+Test Connectivity to RDS from EC2 instance
 #install netcat if not already installed
 sudo yum -y install nc
 nc -zv <hostname> <port>
